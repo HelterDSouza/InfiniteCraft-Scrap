@@ -1,5 +1,6 @@
-use rusqlite::Connection;
 use std::collections::HashSet;
+use rusqlite::{params, Connection, OptionalExtension, Result};
+use crate::model::{CombinationResult, InfiniteCraft};
 
 pub fn create_database(connection: &Connection) -> Result<(), rusqlite::Error> {
     connection.execute(
@@ -55,4 +56,25 @@ pub fn initial_combinations(conn: &Connection) -> Result<HashSet<Vec<String>>, r
         combinations.push(vec![combination.get(1)?, combination.get(0)?]);
     }
     Ok(HashSet::from_iter(combinations))
+
 }
+
+pub fn check_existing_combination(conn: &Connection,first:&str,second:&str) -> Result<Option<InfiniteCraft>,rusqlite::Error>{ 
+    let mut stmt = conn.prepare(
+        "SELECT * FROM combination WHERE (ingr1 = ?1 AND ingr2 = ?2) OR (ingr1 = ?2 AND ingr2 = ?1)",
+    )?;
+
+    let existing_combination = stmt
+        .query_row(params![first,second], |row| {
+            Ok(InfiniteCraft {
+                ingr1: row.get(1)?,
+                ingr2: row.get(2)?,
+                out: row.get(3)?,
+            })
+        })
+        .optional()?;
+
+    Ok(existing_combination)
+
+}
+

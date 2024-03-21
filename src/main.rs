@@ -2,13 +2,12 @@ mod db;
 mod http;
 mod model;
 
-use crate::{db::create_combination, http::request_combination, model::InfiniteCraft};
 
-use crate::db::{create_database, initial_combinations, initial_ingredients};
-use crate::http::build_http_client;
+use crate::db::{create_database, initial_combinations, initial_ingredients,create_combination,check_existing_combination};
+use crate::http::{ request_combination,build_http_client };
 
 use itertools::Itertools;
-use rusqlite::{params, Connection, OptionalExtension, Result};
+use rusqlite::{ Connection, Result};
 use std::collections::HashSet;
 use std::error::Error;
 
@@ -34,21 +33,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 continue;
             };
 
-            let mut stmt = conn.prepare(
-                "SELECT * FROM combination WHERE (ingr1 = ?1 AND ingr2 = ?2) OR (ingr1 = ?2 AND ingr2 = ?1)",
-            )?;
 
-            let existing_combination = stmt
-                .query_row(params![&combination[0], &combination[1]], |row| {
-                    Ok(InfiniteCraft {
-                        ingr1: row.get(1)?,
-                        ingr2: row.get(2)?,
-                        out: row.get(3)?,
-                    })
-                })
-                .optional()?;
-
-            if let Some(combination) = existing_combination {
+            if let Ok(Some(combination)) = check_existing_combination(&conn, &combination[0], &combination[1]) {
                 println!(
                     "☑  {} + {} -> skip...",
                     &combination.ingr1, &combination.ingr2
